@@ -1,0 +1,987 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>회로 퀘스트</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Press+Start+2P&display=swap">
+<style>
+/* Layout: 한 화면 게임. 왼쪽 큰 회로판 + 부품 상자, 오른쪽 회로도·미션·도우미. 좁은 화면에서는 한 줄로 쌓임. */
+:root{
+  color-scheme: dark;
+  --ink:#12131f; --ink2:#171929; --panel:#1d2033; --panel2:#262b47; --edge:#566c86; --black:#0a0b14;
+  --text:#f4f4f4; --muted:#94b0c2;
+  --yellow:#ffcd75; --yellow-d:#b9803a; --orange:#ef7d57; --red:#b13e53; --green:#38b764; --lime:#a7f070;
+  --sky:#41a6f6; --cyan:#73eff7; --blue:#3b5dc9; --navy:#29366f; --plum:#5d275d;
+  --font-ui:'Jua','Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;
+  --font-px:'Press Start 2P','Courier New',monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{background:var(--ink)}
+body{
+  margin:0;background-color:var(--ink);color:var(--text);
+  background-image:linear-gradient(var(--ink2) 2px,transparent 2px),linear-gradient(90deg,var(--ink2) 2px,transparent 2px);
+  background-size:32px 32px;
+  font-family:var(--font-ui);font-size:18px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:14px 48px;
+}
+button{font-family:inherit}
+.app{max-width:1240px;margin:0 auto}
+h1,h2,h3,p{margin:0}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+:focus-visible{outline:4px solid var(--cyan);outline-offset:2px}
+
+/* 공통 픽셀 UI */
+.panel{background:var(--panel);border:4px solid var(--edge);box-shadow:0 0 0 4px var(--black),8px 8px 0 4px var(--black);padding:14px 16px;min-width:0}
+.panel h3{font-size:19px;color:var(--yellow);margin-bottom:8px;letter-spacing:.02em}
+.btn{
+  font-size:18px;padding:7px 14px 8px;border:4px solid var(--black);background:var(--yellow);color:#1a1c2c;
+  box-shadow:0 5px 0 var(--yellow-d);cursor:pointer;transition:none;line-height:1.2;white-space:nowrap;
+}
+.btn:active:not(:disabled){transform:translateY(4px);box-shadow:0 1px 0 var(--yellow-d)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.blue{background:var(--sky);box-shadow:0 5px 0 #25659f}
+.btn.blue:active:not(:disabled){box-shadow:0 1px 0 #25659f}
+.btn.green{background:var(--lime);box-shadow:0 5px 0 #2f8a4d}
+.btn.green:active:not(:disabled){box-shadow:0 1px 0 #2f8a4d}
+.btn.red{background:var(--orange);box-shadow:0 5px 0 var(--red)}
+.btn.red:active:not(:disabled){box-shadow:0 1px 0 var(--red)}
+.btn.ghost{background:var(--panel2);color:var(--text);box-shadow:0 5px 0 #0a0b14;border-color:var(--edge)}
+.btn.ghost:active:not(:disabled){box-shadow:0 1px 0 #0a0b14}
+
+/* 상단 바 */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.logo{display:flex;align-items:center;gap:12px;min-width:0}
+.logo canvas{width:48px;height:48px;flex:none}
+.logo .en{font-family:var(--font-px);font-size:clamp(14px,2.6vw,22px);color:var(--yellow);text-shadow:3px 3px 0 var(--red);letter-spacing:.04em}
+.logo .ko{font-size:15px;color:var(--muted);margin-top:6px}
+.top-actions{display:flex;gap:10px;flex-wrap:wrap}
+
+/* 인트로 */
+.intro-screen{display:flex;flex-direction:column;align-items:center;gap:22px}
+.intro-title{text-align:center}
+.intro-title .en{font-family:var(--font-px);font-size:clamp(20px,5.2vw,44px);color:var(--yellow);text-shadow:5px 5px 0 var(--red);letter-spacing:.05em}
+.intro-title .ko{font-size:clamp(18px,3vw,26px);color:var(--cyan);margin-top:14px}
+.introWrap{position:relative;width:100%;max-width:720px;border:6px solid var(--edge);box-shadow:0 0 0 4px var(--black),8px 8px 0 4px var(--black);background:#1b2540}
+.introWrap canvas{width:100%;height:auto;aspect-ratio:240/168}
+.introWrap .gs{position:absolute;left:50%;bottom:5%;transform:translateX(-50%);font-family:var(--font-px);font-size:clamp(14px,3.6vw,28px);color:var(--yellow);text-shadow:4px 4px 0 var(--black);white-space:nowrap;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.intro-btns{display:flex;gap:18px;flex-wrap:wrap;justify-content:center}
+.btn.big{font-size:clamp(20px,3vw,26px);padding:12px 26px 14px}
+.how-panel{width:100%;max-width:960px;margin-top:10px}
+/* (구) 단계 카드 */
+.intro{display:grid;grid-template-columns:1fr;gap:18px;margin-bottom:26px}
+.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:6px}
+.how div{background:var(--panel2);border:4px solid var(--black);padding:10px 12px;font-size:17px}
+.how b{display:block;font-family:var(--font-px);font-size:11px;color:var(--cyan);margin-bottom:6px;font-weight:400}
+.stage-title{font-family:var(--font-px);font-size:13px;color:var(--cyan);margin:6px 0 18px;letter-spacing:.06em}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:20px}
+.card{
+  position:relative;text-align:left;color:var(--text);background:var(--panel);border:4px solid var(--edge);
+  box-shadow:0 0 0 4px var(--black),6px 6px 0 4px var(--black);padding:12px 14px 14px;cursor:pointer;min-width:0;font-size:17px;
+  display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;
+}
+.card:hover{border-color:var(--yellow);transform:translate(-2px,-2px)}
+.card:active{transform:translate(2px,2px)}
+.card .no{font-family:var(--font-px);font-size:11px;color:var(--cyan)}
+.card .nm{font-size:22px;color:var(--yellow);margin:6px 0 4px}
+.card .ds{font-size:15px;color:var(--muted);min-height:44px}
+.card .icons{display:flex;gap:2px;flex-wrap:wrap;margin-top:8px;min-height:40px}
+.card .icons canvas{width:36px;height:36px}
+.card .stars{position:absolute;top:10px;right:12px;font-size:18px;letter-spacing:2px;color:#3a3f5e}
+.card .stars .on{color:var(--yellow)}
+.card.lab{border-color:var(--green)}
+.card.lab .nm{color:var(--lime)}
+
+/* 게임 화면 */
+.game{display:grid;gap:22px;grid-template-columns:minmax(0,1fr) 380px;
+  grid-template-areas:"head head" "board diagram" "board goals" "tray status"}
+.g-head{grid-area:head;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.g-head .badge{font-family:var(--font-px);font-size:12px;background:var(--red);color:var(--text);padding:9px 10px 7px;border:4px solid var(--black);letter-spacing:.05em}
+.g-head h2{font-size:clamp(24px,4vw,32px);color:var(--yellow);text-shadow:3px 3px 0 var(--black)}
+.g-head p{flex-basis:100%;color:var(--muted);font-size:18px}
+.board-area{grid-area:board;min-width:0}
+.boardWrap{
+  position:relative;width:100%;max-width:960px;container-type:inline-size;
+  border:6px solid var(--edge);box-shadow:0 0 0 4px var(--black),8px 8px 0 4px var(--black);background:#1b2540;
+}
+.boardWrap canvas{width:100%;height:auto;aspect-ratio:240/168;touch-action:none;cursor:crosshair;display:block}
+.boardWrap.move canvas{cursor:grab}
+.boardWrap.erase canvas{cursor:not-allowed}
+.boardWrap.short{border-color:var(--red);animation:shake .18s steps(2) infinite}
+.boardWrap .alert{
+  position:absolute;left:50%;top:10px;transform:translateX(-50%);display:none;pointer-events:none;
+  background:var(--red);color:#fff;border:4px solid var(--black);padding:6px 14px;font-size:20px;white-space:nowrap;z-index:3
+}
+.boardWrap.short .alert{display:block}
+@keyframes shake{0%{transform:translate(0,0)}50%{transform:translate(3px,-2px)}100%{transform:translate(-3px,2px)}}
+#tags{position:absolute;inset:0;pointer-events:none;z-index:2}
+.tag{
+  position:absolute;font-family:var(--font-px);font-size:max(8px,1.45cqw);line-height:1;padding:.5em .55em .45em;
+  background:var(--black);border:2px solid var(--edge);color:var(--text);white-space:nowrap;
+}
+.tag.h{transform:translateX(-50%)}
+.tag.ok{color:var(--lime);border-color:var(--green)}
+.tag.bad{color:var(--orange);border-color:var(--red)}
+.tag.on{color:var(--lime);border-color:var(--green)}
+.tag.off{color:var(--orange);border-color:var(--red)}
+.tag.dim{color:var(--muted)}
+
+.tray-area{grid-area:tray;min-width:0}
+.tray-card{padding:12px 14px}
+.tray-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.tray-head h3{margin:0}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.actions .btn{font-size:16px;padding:5px 11px 6px}
+.tray{display:flex;gap:10px;flex-wrap:wrap}
+.tray-item{
+  position:relative;width:92px;padding:6px 4px 6px;background:var(--panel2);border:4px solid var(--black);color:var(--text);
+  cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;text-align:center;font-size:16px;
+}
+.tray-item canvas{width:72px;height:72px;margin:0 auto}
+.tray-item .nm{display:block;margin-top:2px;line-height:1.1}
+.tray-item .cnt{position:absolute;top:2px;right:3px;font-family:var(--font-px);font-size:10px;color:var(--yellow);text-shadow:2px 2px 0 var(--black)}
+.tray-item:hover{border-color:var(--edge)}
+.tray-item.tool{cursor:pointer;border-color:#0a0b14}
+.tray-item.tool.sel{border-color:var(--yellow);background:#33385c}
+.tray-item.empty{opacity:.35;cursor:not-allowed}
+.sep{width:4px;background:var(--black);align-self:stretch;margin:0 2px}
+.tip{margin-top:12px;font-size:15px;color:var(--muted)}
+
+.side-diagram{grid-area:diagram}
+.side-goals{grid-area:goals}
+.side-status{grid-area:status}
+.diagram canvas{max-width:100%;height:auto;margin:0 auto;border:4px solid var(--black)}
+.ctext{font-size:19px;line-height:1.55}
+.legend{font-size:15px;color:var(--muted);margin-top:8px}
+.legend b{font-weight:400}
+.legend .p{color:var(--orange)} .legend .n{color:var(--sky)}
+#goals{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+#goals li{display:flex;gap:10px;align-items:flex-start;font-size:18px;line-height:1.3}
+#goals .box{flex:none;width:22px;height:22px;border:4px solid var(--edge);background:var(--black);margin-top:1px;position:relative}
+#goals li.ok{color:var(--lime)}
+#goals li.ok .box{background:var(--green);border-color:var(--lime)}
+#goals li.ok .box::after{content:"";position:absolute;left:3px;top:0;width:5px;height:10px;border:solid #12131f;border-width:0 3px 3px 0;transform:rotate(45deg)}
+.status{font-size:19px;line-height:1.4;min-height:5.6em}
+.status.bad{color:var(--orange)}
+.status.good{color:var(--lime)}
+.status.info{color:var(--text)}
+
+/* 드래그 고스트 */
+.dragghost{position:fixed;left:0;top:0;width:72px;height:72px;pointer-events:none;z-index:50;transform:translate(-50%,-50%);opacity:.9}
+
+/* 클리어 창 */
+.modal{position:fixed;inset:0;z-index:60;background:rgba(10,11,20,.82);display:flex;align-items:center;justify-content:center;padding:20px}
+.modal .box{max-width:520px;width:100%;text-align:center;position:relative;overflow:hidden}
+.modal .big{font-family:var(--font-px);font-size:clamp(20px,5vw,30px);color:var(--yellow);text-shadow:4px 4px 0 var(--red);margin:10px 0 16px;letter-spacing:.04em}
+.modal .stars{font-size:54px;letter-spacing:10px;color:#3a3f5e;line-height:1}
+.modal .stars .on{color:var(--yellow);text-shadow:3px 3px 0 var(--red)}
+.modal p{font-size:19px;margin:14px 0 18px}
+.modal .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.confetti i{position:absolute;top:-12px;width:10px;height:10px;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(520px) rotate(280deg)}}
+
+@media (max-width:1000px){
+  .game{grid-template-columns:minmax(0,1fr);grid-template-areas:"head" "diagram" "board" "tray" "goals" "status"}
+}
+@media (max-width:520px){
+  body{font-size:17px}
+  .tray-item{width:80px}
+  .tray-item canvas{width:60px;height:60px}
+  .boardWrap{border-width:4px}
+}
+@media (prefers-reduced-motion:reduce){
+  .boardWrap.short{animation:none}
+  .introWrap .gs{animation:none}
+  .confetti i{animation:none;display:none}
+  .card:hover,.card:active{transform:none}
+}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="logo">
+      <canvas id="logoCv" width="24" height="24" aria-hidden="true"></canvas>
+      <div>
+        <div class="en">CIRCUIT QUEST</div>
+        <div class="ko">회로 퀘스트 · 회로도를 보고 전기 길을 이어요</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="btn ghost" id="btnSound" type="button" aria-pressed="true">🔊 소리 켜짐</button>
+      <button class="btn blue" id="btnHome" type="button" hidden>🏠 처음 화면</button>
+    </div>
+  </header>
+
+  <main id="screenSelect" class="intro-screen">
+    <div class="intro-title"><div class="en">CIRCUIT QUEST</div><div class="ko">회로 퀘스트</div></div>
+    <div class="introWrap">
+      <canvas id="introCv" width="240" height="168" aria-label="깜빡이는 전구가 있는 회로"></canvas>
+      <div class="gs">GAME START</div>
+    </div>
+    <div class="intro-btns">
+      <button class="btn green big" id="btnStart" type="button">▶ 게임 시작</button>
+      <button class="btn blue big" id="btnLab" type="button">🧪 자유 실험실</button>
+    </div>
+    <div class="panel how-panel">
+      <h3>이렇게 놀아요</h3>
+      <div class="how">
+        <div><b>STEP 1</b>부품 상자에서 부품을 <u>끌어서</u> 회로판에 놓아요.</div>
+        <div><b>STEP 2</b>부품을 <u>누르면</u> 방향이 돌아가요. 스위치는 ON / OFF가 바뀌어요.</div>
+        <div><b>STEP 3</b>전선을 쭉 끌어서 끊어진 곳을 이어요. 빨간 점은 아직 안 이어진 곳!</div>
+        <div><b>STEP 4</b>전지와 계기의 + − 방향을 맞추면 전구가 켜지고 전동기가 돌아요.</div>
+      </div>
+    </div>
+  </main>
+
+  <main id="screenGame" class="game" hidden>
+    <div class="g-head">
+      <span class="badge" id="lvBadge">STAGE 1</span>
+      <h2 id="lvTitle"></h2>
+      <p id="lvDesc"></p>
+    </div>
+
+    <div class="board-area">
+      <div class="boardWrap" id="boardWrap">
+        <canvas id="board" width="240" height="168" aria-label="회로판. 부품을 끌어다 놓는 곳"></canvas>
+        <div id="tags"></div>
+        <div class="alert">⚡ 합선! 전지가 뜨거워져요</div>
+      </div>
+    </div>
+
+    <div class="tray-area">
+      <div class="panel tray-card">
+        <div class="tray-head">
+          <h3>🧰 부품 상자</h3>
+          <div class="actions">
+            <button class="btn blue" id="btnRot" type="button" disabled>🔄 돌리기</button>
+            <button class="btn red" id="btnDel" type="button" disabled>🗑 치우기</button>
+            <button class="btn green" id="btnHint" type="button">💡 힌트</button>
+            <button class="btn ghost" id="btnReset" type="button">↩ 처음부터</button>
+          </div>
+        </div>
+        <div class="tray" id="tray"></div>
+        <p class="tip">부품을 보드 밖으로 끌어내면 상자로 돌아가요. 키보드: R 돌리기 · Delete 치우기</p>
+      </div>
+    </div>
+
+    <div class="panel side-diagram" id="textCard" hidden>
+      <h3>📖 회로 설명</h3>
+      <p id="circuitText" class="ctext"></p>
+      <p class="legend">회로도는 없어요. 글을 읽고 직접 만들어 보세요!</p>
+    </div>
+    <div class="panel diagram side-diagram" id="diagramCard">
+      <h3>📋 회로도</h3>
+      <canvas id="diagram" width="240" height="168" aria-label="따라 만들 회로도"></canvas>
+      <p class="legend"><b class="p">+</b> 는 전류가 나오는 쪽, <b class="n">−</b> 는 들어가는 쪽이에요.</p>
+    </div>
+    <div class="panel side-goals">
+      <h3>🎯 미션</h3>
+      <ul id="goals"></ul>
+    </div>
+    <div class="panel side-status">
+      <h3>💬 도우미</h3>
+      <p class="status info" id="status" aria-live="polite"></p>
+    </div>
+  </main>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="panel box" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <div class="confetti" id="confetti"></div>
+    <div class="big" id="mTitle">STAGE CLEAR!</div>
+    <div class="stars" id="mStars"></div>
+    <p id="mText"></p>
+    <div class="row">
+      <button class="btn green" id="mNext" type="button">다음 단계 ▶</button>
+      <button class="btn blue" id="mHome" type="button">처음 화면</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ===== 기본 상수 ===== */
+const COLS=10, ROWS=7, CS=24, PW=COLS*CS, PH=ROWS*CS;
+const DIRS=[[0,-1],[1,0],[0,1],[-1,0]];            // 위, 오른쪽, 아래, 왼쪽
+const opp=d=>(d+2)&3, T0=r=>(3+r)&3, T1=r=>(1+r)&3; // 단자0(−)·단자1(+) 방향
+const COSR=[1,0,-1,0], SINR=[0,1,0,-1];
+const NAMES={wire:'전선',battery:'전지',bulb:'전구',switch:'스위치',ammeter:'전류계',voltmeter:'전압계',motor:'전동기'};
+const ORDER=['battery','switch','bulb','motor','ammeter','voltmeter'];
+const E_BAT=3, R_BAT=0.05, R_BULB=6, R_MOTOR=5, R_AMM=0.05, R_SW=0.01, G_VOLT=1e-6;
+const $=s=>document.querySelector(s);
+
+/* ===== 단계 데이터 ===== */
+const w=(x,y)=>({x,y,t:'wire',r:0});
+const c=(x,y,t,r=0,on=false)=>({x,y,t,r,on});
+function ring(over){
+  const m={}; const put=o=>{m[o.x+','+o.y]=o;};
+  for(let x=2;x<=7;x++){put(w(x,1));put(w(x,4));}
+  for(let y=2;y<=3;y++){put(w(2,y));put(w(7,y));}
+  put(c(4,1,'battery',0)); put(c(2,2,'switch',1,true));
+  over.forEach(put); return Object.values(m);
+}
+const VB=[w(4,5),w(4,6),c(5,6,'voltmeter',0),w(6,6),w(6,5)];
+const SPIN_CW='전동기가 시계 방향(↻)으로 돈다', SPIN_CCW='전동기가 시계 반대 방향(↺)으로 돈다';
+const LEVELS=[
+ {name:'첫 번째 불빛',desc:'전지, 스위치, 전구를 끊어진 곳 없이 한 바퀴 이어서 불을 켜요.',
+  parts:{battery:1,switch:1,bulb:1},fixed:[],sol:ring([c(5,4,'bulb')]),
+  goals:[{k:'bulb',n:1,min:0.05,label:'전구에 불이 켜진다'}],
+  tip:'부품을 회로도처럼 놓고 전선으로 이어요. 마지막에 스위치를 눌러 ON으로 바꿔요!',
+  learn:'전지, 스위치, 전구가 끊어진 곳 없이 한 바퀴 이어진 길을 회로라고 해요. 스위치를 닫아야 전류가 흘러요.'},
+ {name:'전류계 달기',desc:'전류계는 회로 중간에 한 줄로(직렬) 끼워요. + 단자로 전류가 들어와야 해요.',
+  parts:{battery:1,switch:1,bulb:1,ammeter:1},fixed:[],sol:ring([c(5,4,'bulb'),c(7,2,'ammeter',3)]),
+  goals:[{k:'bulb',n:1,min:0.05,label:'전구에 불이 켜진다'},{k:'amm',min:0.4,label:'전류계가 + 쪽으로 움직인다 (약 0.5 A)'}],
+  tip:'전류는 전지의 + 극에서 나와요. 전류계의 + 단자가 전지의 + 극 쪽을 보게 해 보세요.',
+  learn:'전류계는 회로에 직렬로 연결하고, 전지의 + 극 쪽 전선을 전류계의 + 단자에 이어요.'},
+ {name:'전압계 달기',desc:'전압계는 재려는 부품과 나란히(병렬) 이어요. 전구 양쪽 끝에 연결해 보세요.',
+  parts:{battery:1,switch:1,bulb:1,voltmeter:1},fixed:[],sol:ring([c(5,4,'bulb')]).concat(VB),
+  goals:[{k:'bulb',n:1,min:0.05,label:'전구에 불이 켜진다'},{k:'volt',min:2.5,label:'전압계가 + 쪽으로 움직인다 (약 3 V)'}],
+  tip:'전구 양쪽 전선에서 샛길을 만들어 전압계를 이어요. 전압계의 + 단자는 전지의 + 극에 가까운 쪽!',
+  learn:'전압계는 재려는 부품에 병렬로 연결해요. 전압계를 직렬로 달면 전류가 거의 흐르지 않아요.'},
+ {name:'전동기 돌리기',desc:'전동기가 시계 방향으로 돌아가게 만들어요. 전지 방향이 열쇠예요!',
+  parts:{battery:1,switch:1,motor:1},fixed:[],sol:ring([c(5,4,'motor',0)]),
+  goals:[{k:'motor',dir:1,min:0.3,label:SPIN_CW}],
+  tip:'반대로 돈다면 전지를 눌러서 방향을 바꿔 보세요. 전류가 전동기의 + 단자로 들어가면 시계 방향이에요.',
+  learn:'전동기는 전류가 들어오는 방향에 따라 회전 방향이 달라져요. 전지의 방향을 바꾸면 반대로 돌아요.'},
+ {name:'거꾸로 돌리기',desc:'전지는 잠겨 있어요. 이번에는 시계 반대 방향으로 돌려 보세요.',
+  parts:{switch:1,motor:1},fixed:[c(4,1,'battery',0)],sol:ring([c(5,4,'motor',2)]),
+  goals:[{k:'motor',dir:-1,min:0.3,label:SPIN_CCW}],
+  tip:'전지를 못 바꾼다면? 전동기를 돌려서 + 단자 방향을 바꾸면 돼요.',
+  learn:'전지를 바꾸지 않아도 전동기의 연결 방향을 바꾸면 회전 방향이 반대가 돼요.'},
+ {name:'계기 두 개 달기',desc:'전류계는 직렬, 전압계는 병렬. 둘 다 + 방향을 맞춰 보세요.',
+  parts:{battery:1,switch:1,bulb:1,ammeter:1,voltmeter:1},fixed:[],
+  sol:ring([c(5,4,'bulb'),c(7,2,'ammeter',3)]).concat(VB),
+  goals:[{k:'bulb',n:1,min:0.05,label:'전구에 불이 켜진다'},{k:'amm',min:0.4,label:'전류계가 + 쪽으로 움직인다'},{k:'volt',min:2.5,label:'전압계가 + 쪽으로 움직인다'}],
+  tip:'전류계가 거꾸로 달리면 합선이 되기도 해요. 전류계는 꼭 한 줄 안에!',
+  learn:'전류계는 직렬, 전압계는 병렬! 두 계기 모두 + 단자가 전지의 + 극 쪽을 향해야 해요.'},
+ {name:'전구 두 개 한 줄로',desc:'전구 두 개를 한 줄로(직렬) 이어요. 전구가 어두워지는 걸 보세요.',
+  parts:{battery:1,switch:1,bulb:2,ammeter:1},fixed:[],
+  sol:ring([c(5,4,'bulb'),c(3,4,'bulb'),c(7,2,'ammeter',3)]),
+  goals:[{k:'bulb',n:2,min:0.1,label:'전구 2개에 불이 켜진다'},{k:'amm',min:0.2,max:0.3,label:'전류계가 약 0.25 A를 가리킨다'}],
+  tip:'전구가 하나일 때보다 전류가 줄어요. 전구 두 개가 한 길에 나란히 서 있어야 해요.',
+  learn:'직렬로 전구를 늘리면 전체 저항이 커져서 전류가 줄고 전구가 어두워져요.'},
+ {name:'전구 두 개 나란히',desc:'전구 두 개를 갈림길(병렬)에 이어요. 이번에는 둘 다 밝게 켜져요.',
+  parts:{battery:1,switch:1,bulb:2,ammeter:1},fixed:[],
+  sol:[w(2,1),c(2,2,'switch',1,true),c(2,3,'battery',3),w(2,4),w(2,5),c(3,1,'ammeter',2),w(4,1),w(5,1),w(6,1),w(7,1),
+       w(5,2),c(5,3,'bulb',1),w(5,4),w(7,2),c(7,3,'bulb',1),w(7,4),w(3,5),w(4,5),w(5,5),w(6,5),w(7,5)],
+  goals:[{k:'bulb',n:2,min:0.85,label:'전구 2개가 밝게 켜진다'},{k:'amm',min:0.9,label:'전류계가 약 1 A를 가리킨다'}],
+  tip:'위쪽 전선과 아래쪽 전선 사이에 전구를 하나씩 놓아 길을 두 갈래로 만들어요.',
+  learn:'병렬로 이으면 전구마다 전지의 전압이 그대로 걸려서 밝고, 전체 전류는 두 갈래의 합이 돼요.'},
+ {name:'힘센 전지 두 개',desc:'전지 두 개를 +와 −가 만나게 이어서 전동기를 아주 빠르게 돌려요.',
+  parts:{battery:2,switch:1,motor:1,voltmeter:1},fixed:[],
+  sol:ring([c(3,1,'battery',0),c(5,4,'motor',0)]).concat(VB),
+  goals:[{k:'motor',dir:1,min:1.0,label:SPIN_CW+' 빠르게'},{k:'volt',min:5.0,label:'전압계가 약 6 V를 가리킨다'}],
+  tip:'전지 두 개는 한쪽의 + 와 다른 쪽의 − 가 만나게! 같은 극끼리 만나면 힘이 사라져요.',
+  learn:'전지를 같은 방향으로 직렬 연결하면 전압이 더해져요 (3 V + 3 V = 6 V). 반대로 이으면 서로 힘을 없애요.'},
+ {name:'자유 실험실',desc:'부품이 무한! 마음대로 회로를 만들어 보세요. 합선 실험도 해 봐요.',
+  parts:{battery:99,switch:99,bulb:99,motor:99,ammeter:99,voltmeter:99},fixed:[],sol:[],goals:[],lab:true,
+  tip:'전지 양쪽을 전선으로 바로 이으면 어떻게 될까요? 전류계를 병렬로 달면요? 직접 해 보세요.',
+  learn:''}
+];
+
+/* 3단계부터는 회로도 없이 글 설명만 제공 */
+const TEXTS={
+ 2:'전지, 스위치, 전구가 한 줄로 이어진 회로예요. 여기에 전압계를 전구와 나란히(병렬) 이어서 전구에 걸리는 전압을 재요. 전압계의 + 단자는 전지의 + 극에 가까운 쪽 전선에 이어요.',
+ 3:'전지, 스위치, 전동기를 한 줄로 이은 회로예요. 전지의 + 극에서 나온 전류가 스위치와 전동기를 지나 − 극으로 돌아오게 해요. 전류가 전동기의 + 단자로 들어가면 시계 방향으로 돌아요.',
+ 4:'전지는 이미 놓여 있어요. 스위치와 전동기를 전지와 한 줄로 이어서 전동기를 시계 반대 방향으로 돌려요. 이번에는 전류가 전동기의 − 단자 쪽으로 들어가야 해요.',
+ 5:'전지, 스위치, 전구를 한 줄로 잇고, 전류계는 그 줄 안에 직렬로 끼워요. 전압계는 전구와 나란히(병렬) 달아요. 두 계기의 + 단자는 모두 전지의 + 극 쪽을 향해야 해요.',
+ 6:'전지, 스위치, 전류계, 전구 2개를 모두 한 줄(직렬)로 이어요. 전구를 하나 더 달았으니 전구는 어두워지고 전류는 줄어들어요.',
+ 7:'전지, 스위치, 전류계를 한 줄로 이어 본선을 만들어요. 전구 2개는 본선의 위쪽 전선과 아래쪽 전선 사이에 하나씩 나란히(병렬) 달아요. 전류계는 길이 갈라지기 전 본선에 있어야 해요.',
+ 8:'전지 2개를 한쪽의 + 극과 다른 쪽의 − 극이 만나게(직렬) 이어서 스위치, 전동기와 한 줄로 만들어요. 전압계는 전동기와 나란히(병렬) 달아서 약 6 V를 재요.'
+};
+for(const k in TEXTS)LEVELS[k].text=TEXTS[k];
+
+/* ===== 연결 판정과 회로 계산 ===== */
+const nb=(i,d)=>{const x=i%COLS+DIRS[d][0],y=((i/COLS)|0)+DIRS[d][1];return(x<0||y<0||x>=COLS||y>=ROWS)?-1:y*COLS+x;};
+const hasTerm=(p,d)=>p.t!=='wire'&&(T0(p.r)===d||T1(p.r)===d);
+function linked(bd,i,d){
+  const p=bd[i]; if(!p)return false;
+  if(p.t!=='wire'&&!hasTerm(p,d))return false;
+  const j=nb(i,d); if(j<0)return false;
+  const q=bd[j]; if(!q)return false;
+  return q.t==='wire'||hasTerm(q,opp(d));
+}
+function solve(A,b){
+  const n=b.length;
+  for(let c0=0;c0<n;c0++){
+    let p=c0; for(let r=c0+1;r<n;r++) if(Math.abs(A[r][c0])>Math.abs(A[p][c0])) p=r;
+    [A[c0],A[p]]=[A[p],A[c0]]; [b[c0],b[p]]=[b[p],b[c0]];
+    const d=A[c0][c0]; if(Math.abs(d)<1e-15)continue;
+    for(let r=c0+1;r<n;r++){const f=A[r][c0]/d; if(!f)continue; for(let k=c0;k<n;k++)A[r][k]-=f*A[c0][k]; b[r]-=f*b[c0];}
+  }
+  const x=new Float64Array(n);
+  for(let r=n-1;r>=0;r--){let s=b[r]; for(let k=r+1;k<n;k++)s-=A[r][k]*x[k]; x[r]=Math.abs(A[r][r])<1e-15?0:s/A[r][r];}
+  return x;
+}
+function simulate(bd,forceOn){
+  const N=COLS*ROWS, par=new Int32Array(N*5); for(let k=0;k<par.length;k++)par[k]=k;
+  const find=a=>{while(par[a]!==a){par[a]=par[par[a]];a=par[a];}return a;};
+  const uni=(a,b)=>{a=find(a);b=find(b);if(a!==b)par[a]=b;};
+  const comps=[];
+  for(let i=0;i<N;i++){
+    const p=bd[i]; if(!p)continue; if(p.t!=='wire')comps.push(i);
+    for(let d=0;d<4;d++) if(linked(bd,i,d)){
+      const j=nb(i,d), q=bd[j];
+      uni(p.t==='wire'?i*5+4:i*5+d, q.t==='wire'?j*5+4:j*5+opp(d));
+    }
+  }
+  const map=new Map(), idx=id=>{const r=find(id);if(!map.has(r))map.set(r,map.size);return map.get(r);};
+  const defs=comps.map(i=>({i,p:bd[i],t:bd[i].t,a:idx(i*5+T0(bd[i].r)),b:idx(i*5+T1(bd[i].r))}));
+  const n=map.size, G=Array.from({length:n},()=>new Float64Array(n)), I=new Float64Array(n);
+  for(let k=0;k<n;k++)G[k][k]+=1e-9;
+  for(const e of defs){
+    let g=0,inj=0;
+    switch(e.t){
+      case 'battery':g=1/R_BAT;inj=E_BAT/R_BAT;break;
+      case 'bulb':g=1/R_BULB;break;
+      case 'motor':g=1/R_MOTOR;break;
+      case 'ammeter':g=1/R_AMM;break;
+      case 'voltmeter':g=G_VOLT;break;
+      case 'switch':g=(e.p.on||forceOn)?1/R_SW:0;break;
+    }
+    e.g=g;e.inj=inj;
+    G[e.a][e.a]+=g;G[e.b][e.b]+=g;G[e.a][e.b]-=g;G[e.b][e.a]-=g;
+    I[e.b]+=inj;I[e.a]-=inj;
+  }
+  const V=n?solve(G,I):new Float64Array(0);
+  const els=[],byCell={},act=new Set(); let short=false;
+  for(const e of defs){
+    const v=V[e.b]-V[e.a];
+    const cur=e.t==='battery'?e.inj-e.g*v:e.g*v;
+    if(e.t==='battery'&&cur>3)short=true;
+    const r={i:e.i,t:e.t,I:cur,v,active:e.t!=='voltmeter'&&Math.abs(cur)>0.02};
+    if(e.t==='bulb')r.bright=e.g*v*v/1.5;
+    if(r.active){act.add(find(e.i*5+T0(e.p.r)));act.add(find(e.i*5+T1(e.p.r)));}
+    els.push(r);byCell[e.i]=r;
+  }
+  return {els,byCell,short,act,find};
+}
+
+/* ===== 그리기 (픽셀 도트) ===== */
+let g=null, TH=null;
+const GAME_TH={bg:'#1b2540',bg2:'#1f2b49',dot:'#33446d',wireO:'#0c0e1c',wire:'#94b0c2',on:'#ffcd75',on2:'#fff3c4',body:'#f4f4f4',fill:'#2a3358',pos:'#ef7d57',neg:'#41a6f6',blink:true};
+const BLUE_TH={bg:'#29366f',bg2:'#2c3a77',dot:'#4659a8',wireO:'#29366f',wire:'#f4f4f4',on:'#f4f4f4',on2:'#f4f4f4',body:'#f4f4f4',fill:'#29366f',pos:'#ffcd75',neg:'#73eff7',blink:false};
+const R=(x,y,w_,h,col)=>{g.fillStyle=col;g.fillRect(x,y,w_,h);};
+function disc(cx,cy,r,col){g.fillStyle=col;for(let dy=-r;dy<r;dy++){const hw=Math.round(Math.sqrt(r*r-(dy+.5)*(dy+.5)));g.fillRect(cx-hw,cy+dy,hw*2,1);}}
+function line(x0,y0,x1,y1,col,th){
+  g.fillStyle=col; const dx=Math.abs(x1-x0),dy=-Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1; let err=dx+dy,x=x0,y=y0;
+  for(;;){g.fillRect(x-(th>>1),y-(th>>1),th,th); if(x===x1&&y===y1)break; const e2=2*err; if(e2>=dy){err+=dy;x+=sx;} if(e2<=dx){err+=dx;y+=sy;}}
+}
+const FONT={A:'010101111101101',V:'101101101101010',M:'101111111101101','+':'000010111010000','-':'000000111000000'};
+function glyph(ch,x,y,col,s){g.fillStyle=col;const b=FONT[ch];for(let k=0;k<15;k++)if(b[k]==='1')g.fillRect(x+(k%3)*s,y+((k/3)|0)*s,s,s);}
+const pulse=(i,t)=>((i+Math.floor(t*8))%3===0)?TH.on2:TH.on;
+
+function bulbCols(b){
+  if(b<0.05)return[TH.fill,TH.wire];
+  if(b<0.3)return['#9a6b3a','#ffcd75'];
+  if(b<0.7)return['#e8a94f','#fff3c4'];
+  return['#ffcd75','#ffffff'];
+}
+function leadH(a,b,col){R(a,-2,b-a,4,TH.wireO);R(a,-1,b-a,2,col);}
+function drawComp(p,ox,oy,st,t,ang){
+  g.setTransform(COSR[p.r],SINR[p.r],-SINR[p.r],COSR[p.r],ox+12,oy+12);
+  const col=st&&st.active?(st.short?'#ef7d57':TH.on):TH.wire;
+  switch(p.t){
+    case 'battery':
+      leadH(-12,-4,col);leadH(4,12,col);
+      R(-4,-4,2,8,TH.neg);R(2,-8,2,16,TH.pos);break;
+    case 'bulb':{
+      leadH(-12,-8,col);leadH(8,12,col);
+      const b=st&&st.bright!=null?st.bright:0, cs=bulbCols(b);
+      disc(0,0,8,TH.body);disc(0,0,7,cs[0]);
+      R(-7,-1,3,2,cs[1]);R(4,-1,3,2,cs[1]);
+      for(let a=Math.PI;a<=Math.PI*2+0.01;a+=0.12){R(Math.round(Math.cos(a)*4.5)-1,Math.round(Math.sin(a)*4.5)-1,2,2,cs[1]);}
+      break;}
+    case 'motor':{
+      leadH(-12,-8,col);leadH(8,12,col);
+      disc(0,0,8,TH.body);disc(0,0,7,TH.fill);
+      const sp=st&&Math.abs(st.I)>0.05, cc=sp?'#73eff7':TH.wire;
+      for(let k=0;k<3;k++){const a=(ang||0)+k*2.0944;line(0,0,Math.round(Math.cos(a)*5.5),Math.round(Math.sin(a)*5.5),cc,2);}
+      R(-1,-1,2,2,TH.body);break;}
+    case 'ammeter':case 'voltmeter':
+      leadH(-12,-8,col);leadH(8,12,col);
+      disc(0,0,8,TH.body);disc(0,0,7,TH.fill);break;
+    case 'switch':{
+      leadH(-12,-8,col);leadH(8,12,col);
+      R(-8,-2,4,4,TH.body);R(4,-2,4,4,TH.body);
+      if(p.on)R(-6,-1,12,2,'#a7f070'); else line(-6,0,4,-8,'#ef7d57',2);
+      break;}
+  }
+  g.setTransform(1,0,0,1,0,0);
+}
+function drawOverlay(p,ox,oy,st){
+  const cx=ox+12,cy=oy+12;
+  if(p.t==='ammeter'||p.t==='voltmeter'){
+    let cl=TH.body; if(st&&st.active){const val=p.t==='ammeter'?st.I:st.v; cl=val>0.05?'#a7f070':(val<-0.05?'#ef7d57':TH.body);}
+    glyph(p.t==='ammeter'?'A':'V',cx-3,cy-5,cl,2);
+  }
+  if(p.t==='motor'||p.t==='battery'||p.t==='ammeter'||p.t==='voltmeter'){
+    const sg=(d,ch,col)=>{const v=DIRS[d],pp=[Math.abs(v[1]),-Math.abs(v[0])];
+      const px=Math.round(cx+v[0]*9.5+pp[0]*6),py=Math.round(cy+v[1]*9.5+pp[1]*6); glyph(ch,px-1,py-2,col,1);};
+    sg(T1(p.r),'+',TH.pos);
+    if(p.t!=='motor')sg(T0(p.r),'-',TH.neg);
+  }
+}
+function drawPieces(bd,sim,t,o){
+  const A=o.alpha||1;
+  g.globalAlpha=A;
+  if(sim)for(const e of sim.els)if(e.t==='bulb'&&e.bright>0.05){
+    const x=(e.i%COLS)*CS+12,y=((e.i/COLS)|0)*CS+12,b=Math.min(1,e.bright+0.25);
+    g.globalAlpha=A*0.13*b;disc(x,y,11,'#ffcd75');disc(x,y,15,'#ffcd75');disc(x,y,19,'#ffcd75');g.globalAlpha=A;
+  }
+  const wires=[];
+  for(let i=0;i<bd.length;i++)if(bd[i]&&bd[i].t==='wire')wires.push(i);
+  const arms={};
+  for(const i of wires)arms[i]=[0,1,2,3].map(d=>linked(bd,i,d));
+  for(const i of wires){
+    const x=(i%COLS)*CS,y=((i/COLS)|0)*CS,a=arms[i],n=a.filter(Boolean).length;
+    if(n===0){R(x+9,y+9,6,6,TH.wireO);continue;}
+    R(x+10,y+10,4,4,TH.wireO);
+    if(a[0])R(x+10,y,4,14,TH.wireO); if(a[1])R(x+10,y+10,14,4,TH.wireO);
+    if(a[2])R(x+10,y+10,4,14,TH.wireO); if(a[3])R(x,y+10,14,4,TH.wireO);
+  }
+  for(const i of wires){
+    const x=(i%COLS)*CS,y=((i/COLS)|0)*CS,a=arms[i],n=a.filter(Boolean).length;
+    let col=TH.wire;
+    if(sim&&sim.act.has(sim.find(i*5+4)))col=sim.short?(((i+Math.floor(t*10))&1)?'#ef7d57':'#ffcd75'):pulse(i,t);
+    if(n===0){R(x+10,y+10,4,4,col);continue;}
+    R(x+11,y+11,2,2,col);
+    if(a[0])R(x+11,y,2,13,col); if(a[1])R(x+11,y+11,13,2,col);
+    if(a[2])R(x+11,y+11,2,13,col); if(a[3])R(x,y+11,13,2,col);
+    if(n>=3)R(x+10,y+10,4,4,TH.body);
+  }
+  for(let i=0;i<bd.length;i++){
+    const p=bd[i]; if(!p||p.t==='wire')continue;
+    const x=(i%COLS)*CS,y=((i/COLS)|0)*CS, st=sim?sim.byCell[i]:null;
+    if(st&&sim.short&&st.active)st.short=true;
+    drawComp(p,x,y,st,t,o.motorAng&&o.motorAng[i]);
+  }
+  for(let i=0;i<bd.length;i++){
+    const p=bd[i]; if(!p||p.t==='wire')continue;
+    const x=(i%COLS)*CS,y=((i/COLS)|0)*CS, st=sim?sim.byCell[i]:null;
+    drawOverlay(p,x,y,st);
+    if(TH.blink&&Math.floor(t*2.5)%2===0){
+      for(const d of [T0(p.r),T1(p.r)]) if(!linked(bd,i,d)){
+        const pos=[[10,0],[20,10],[10,20],[0,10]][d]; R(x+pos[0],y+pos[1],4,4,'#ef4d5d');
+      }
+    }
+    if(p.locked){R(x+3,y+2,1,3,'#94b0c2');R(x+6,y+2,1,3,'#94b0c2');R(x+3,y+1,4,1,'#94b0c2');R(x+2,y+5,6,5,'#ffcd75');R(x+4,y+7,2,2,'#5d275d');}
+  }
+  g.globalAlpha=1;
+}
+function renderBoard(ctx,bd,sim,t,o){
+  g=ctx;g.setTransform(1,0,0,1,0,0);g.imageSmoothingEnabled=false;TH=o.theme;
+  R(0,0,PW,PH,TH.bg);
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){if((x+y)&1)R(x*CS,y*CS,CS,CS,TH.bg2);R(x*CS+11,y*CS+11,2,2,TH.dot);}
+  if(o.hover!=null&&o.hover>=0){
+    const x=(o.hover%COLS)*CS,y=((o.hover/COLS)|0)*CS,col=o.hoverCol||'#ffffff';
+    g.globalAlpha=0.9;R(x,y,CS,2,col);R(x,y+CS-2,CS,2,col);R(x,y,2,CS,col);R(x+CS-2,y,2,CS,col);g.globalAlpha=0.15;R(x,y,CS,CS,col);g.globalAlpha=1;
+  }
+  if(o.ghost)drawPieces(o.ghost,null,t,{alpha:0.38});
+  drawPieces(bd,sim,t,o);
+  if(o.sel!=null&&o.sel>=0&&bd[o.sel]){
+    const x=(o.sel%COLS)*CS,y=((o.sel/COLS)|0)*CS,cl=Math.floor(t*3)%2?'#ffcd75':'#ffffff';
+    R(x,y,7,2,cl);R(x,y,2,7,cl);R(x+CS-7,y,7,2,cl);R(x+CS-2,y,2,7,cl);
+    R(x,y+CS-2,7,2,cl);R(x,y+CS-7,2,7,cl);R(x+CS-7,y+CS-2,7,2,cl);R(x+CS-2,y+CS-7,2,7,cl);
+  }
+  if(sim&&sim.short){
+    for(const e of sim.els)if(e.t==='battery'){
+      const x=(e.i%COLS)*CS+12,y=((e.i/COLS)|0)*CS+12;
+      for(let k=0;k<7;k++){R(x+Math.round((Math.random()-.5)*30),y+Math.round((Math.random()-.5)*30),2,2,Math.random()<.5?'#ffcd75':'#ff8a4d');}
+    }
+  }
+}
+/* 부품 아이콘 (트레이/고스트/카드용) */
+function iconCanvas(cv,type,rot){
+  const ctx=cv.getContext('2d');g=ctx;TH=GAME_TH;g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,24,24);g.imageSmoothingEnabled=false;
+  if(type==='wire'){R(0,10,24,4,TH.wireO);R(0,11,24,2,TH.wire);R(8,8,8,8,TH.wireO);R(9,9,6,6,TH.body);R(10,10,4,4,TH.wire);return;}
+  if(type==='erase'){R(3,7,18,11,'#0c0e1c');R(4,8,16,9,'#ef7d57');R(4,8,16,3,'#f4f4f4');R(4,15,16,2,'#b13e53');R(8,19,8,2,'#566c86');return;}
+  const p={t:type,r:rot||0,on:type==='switch'};
+  drawComp(p,0,0,type==='bulb'?{bright:0,I:0}:null,0,0);
+  drawOverlay(p,0,0,null);
+}
+
+/* ===== 소리 ===== */
+let AC=null,muted=false;
+function beep(f,d,type,vol,delay){
+  if(muted)return;
+  try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(),gn=AC.createGain(),t0=AC.currentTime+(delay||0);
+    o.type=type||'square';o.frequency.setValueAtTime(f,t0);gn.gain.setValueAtTime(vol||0.04,t0);gn.gain.exponentialRampToValueAtTime(0.0001,t0+d);
+    o.connect(gn);gn.connect(AC.destination);o.start(t0);o.stop(t0+d+0.02);}catch(e){}
+}
+const sfx={
+  put(){beep(520,.07);beep(780,.07,'square',.04,.06);},
+  tick(){beep(660,.03,'square',.025);},
+  turn(){beep(440,.06,'triangle',.06);},
+  sw(on){beep(on?900:300,.09,'square',.05);},
+  del(){beep(220,.1,'sawtooth',.04);},
+  no(){beep(150,.14,'square',.05);},
+  zap(){for(let k=0;k<6;k++)beep(120+Math.random()*200,.06,'sawtooth',.05,k*.05);},
+  win(){[523,659,784,1047,784,1047].forEach((f,k)=>beep(f,.16,'square',.05,k*.11));}
+};
+
+/* ===== 게임 상태 ===== */
+const S={lv:-1,L:null,bd:[],tool:'wire',sel:-1,drag:null,painting:null,trayPaint:null,last:-1,hover:-1,hoverCol:'#ffffff',
+  sim:null,simF:null,goals:[],shorts:0,shortPrev:false,hintUntil:0,hintUsed:false,okSince:0,cleared:false,motorAng:{},solBd:[],running:false,lastT:0};
+let progress={};
+try{progress=JSON.parse(localStorage.getItem('circuit-quest-v1')||'{}')||{};}catch(e){progress={};}
+function saveProgress(){try{localStorage.setItem('circuit-quest-v1',JSON.stringify(progress));}catch(e){}}
+
+const cvBoard=$('#board'), ctxB=cvBoard.getContext('2d'), cvDia=$('#diagram'), wrap=$('#boardWrap');
+
+function toBd(list,lock){const bd=new Array(COLS*ROWS).fill(null);list.forEach(o=>{bd[o.y*COLS+o.x]={t:o.t,r:o.r||0,on:!!o.on,locked:!!lock&&false};});return bd;}
+function remaining(){
+  const rem={};
+  for(const k of ORDER)rem[k]=(S.L.parts[k]||0);
+  if(!S.L.lab)for(const p of S.bd)if(p&&p.t!=='wire'&&!p.locked)rem[p.t]-=1;
+  else if(S.L.lab){/* 무한 */}
+  return rem;
+}
+
+/* ===== 화면 전환 ===== */
+function showSelect(){
+  S.running=false;S.drag=null;removeGhost();
+  $('#screenGame').hidden=true;$('#screenSelect').hidden=false;$('#btnHome').hidden=true;$('#modal').hidden=true;
+  startIntro();window.scrollTo(0,0);
+}
+let introRun=false,introBd=null,simOn=null,simOff=null;
+const ictx=$('#introCv').getContext('2d');
+function introLoop(now){
+  if(!introRun)return;
+  const t=now/1000,on=Math.floor(t*2.2)%2===0;
+  renderBoard(ictx,introBd,on?simOn:simOff,t,{theme:GAME_TH});
+  requestAnimationFrame(introLoop);
+}
+function startIntro(){
+  if(!introBd){
+    introBd=toBd(ring([c(5,4,'bulb')]).map(o=>o),false);
+    ring([c(5,4,'bulb')]).forEach(o=>{if(o.t==='switch')introBd[o.y*COLS+o.x].on=true;});
+    simOn=simulate(introBd,false);
+    const bc={};for(const k in simOn.byCell)bc[k]={...simOn.byCell[k],active:false,bright:0,I:0};
+    simOff={...simOn,byCell:bc,els:Object.values(bc),act:new Set()};
+  }
+  if(!introRun){introRun=true;requestAnimationFrame(introLoop);}
+}
+$('#btnStart').addEventListener('click',()=>{introRun=false;loadLevel(0);});
+$('#btnLab').addEventListener('click',()=>{introRun=false;loadLevel(LEVELS.length-1);});
+function loadLevel(i){
+  S.lv=i;S.L=LEVELS[i];S.bd=new Array(COLS*ROWS).fill(null);
+  (S.L.fixed||[]).forEach(o=>{S.bd[o.y*COLS+o.x]={t:o.t,r:o.r||0,on:false,locked:true};});
+  S.solBd=toBd(S.L.sol,false);
+  S.tool='wire';S.sel=-1;S.drag=null;S.painting=null;S.shorts=0;S.shortPrev=false;S.hintUntil=0;S.hintUsed=false;S.okSince=0;S.cleared=false;S.motorAng={};
+  $('#screenSelect').hidden=true;$('#screenGame').hidden=false;$('#btnHome').hidden=false;$('#modal').hidden=true;
+  $('#lvBadge').textContent=S.L.lab?'FREE LAB':'STAGE '+(i+1);
+  $('#lvTitle').textContent=S.L.name;$('#lvDesc').textContent=S.L.desc;
+  $('#diagramCard').style.display=(S.L.lab||S.L.text)?'none':'';
+  $('#textCard').hidden=!S.L.text;$('#circuitText').textContent=S.L.text||'';
+  $('#btnHint').style.display=S.L.lab?'none':'';
+  if(!S.L.lab&&!S.L.text){
+    const dbd=toBd(S.L.sol,false); S.L.sol.forEach(o=>{if(o.t==='switch')dbd[o.y*COLS+o.x].on=true;});
+    const off=document.createElement('canvas');off.width=PW;off.height=PH;
+    renderBoard(off.getContext('2d'),dbd,null,0,{theme:BLUE_TH});
+    let x0=COLS,y0=ROWS,x1=0,y1=0;
+    S.L.sol.forEach(o=>{x0=Math.min(x0,o.x);y0=Math.min(y0,o.y);x1=Math.max(x1,o.x);y1=Math.max(y1,o.y);});
+    const pad=14,sx=Math.max(0,x0*CS-pad),sy=Math.max(0,y0*CS-pad),ex=Math.min(PW,(x1+1)*CS+pad),ey=Math.min(PH,(y1+1)*CS+pad);
+    cvDia.width=ex-sx;cvDia.height=ey-sy;
+    cvDia.getContext('2d').drawImage(off,sx,sy,ex-sx,ey-sy,0,0,ex-sx,ey-sy);
+    const k=Math.min(340/(ex-sx),270/(ey-sy));cvDia.style.width=Math.round((ex-sx)*k)+'px';
+  }
+  buildTray();recompute();setStatus(S.L.tip,'info');
+  window.scrollTo(0,0);
+  if(!S.running){S.running=true;S.lastT=performance.now();requestAnimationFrame(loop);}
+}
+
+/* ===== 부품 상자 ===== */
+function buildTray(){
+  const tr=$('#tray');tr.innerHTML='';
+  const mk=(type,label,tool)=>{
+    const b=document.createElement('button');b.type='button';b.className='tray-item'+(tool?' tool':'');b.dataset.type=type;
+    b.innerHTML='<canvas width="24" height="24"></canvas><span class="nm"></span><span class="cnt"></span>';
+    b.querySelector('.nm').textContent=label;iconCanvas(b.querySelector('canvas'),type,0);
+    if(tool){
+      b.addEventListener('pointerdown',e=>{e.preventDefault();const was=S.tool===type;S.tool=type;S.painting=type;S.last=-1;S.trayPaint={was,entered:false};updateToolUI();});
+      b.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();S.tool=(S.tool===type)?'move':type;updateToolUI();}});
+    }else{
+      b.addEventListener('pointerdown',e=>{
+        if(b.classList.contains('empty')){sfx.no();return;}
+        if(S.tool==='erase'){S.tool='wire';updateToolUI();}
+        e.preventDefault();S.drag={src:'tray',type,piece:{t:type,r:0,on:false},moved:true};makeGhost(type,0,e);sfx.tick();
+      });
+    }
+    tr.appendChild(b);return b;
+  };
+  mk('wire','전선',true);mk('erase','지우개',true);
+  const sp=document.createElement('div');sp.className='sep';tr.appendChild(sp);
+  ORDER.forEach(k=>{if(S.L.parts[k])mk(k,NAMES[k],false);});
+  updateToolUI();
+}
+function updateToolUI(){
+  document.querySelectorAll('.tray-item.tool').forEach(b=>b.classList.toggle('sel',b.dataset.type===S.tool));
+  wrap.classList.toggle('move',S.tool==='move');wrap.classList.toggle('erase',S.tool==='erase');
+}
+function updateTray(){
+  const rem=remaining();
+  document.querySelectorAll('.tray-item:not(.tool)').forEach(b=>{
+    const k=b.dataset.type,n=rem[k];
+    b.classList.toggle('empty',!S.L.lab&&n<=0);
+    b.querySelector('.cnt').textContent=S.L.lab?'∞':'×'+Math.max(0,n);
+  });
+  const p=S.sel>=0?S.bd[S.sel]:null;
+  $('#btnRot').disabled=!(p&&!p.locked);$('#btnDel').disabled=!(p&&!p.locked);
+}
+
+/* ===== 고스트(끌고 있는 부품) ===== */
+let ghostEl=null;
+function makeGhost(type,rot,e){
+  removeGhost();
+  ghostEl=document.createElement('canvas');ghostEl.width=ghostEl.height=24;ghostEl.className='dragghost';
+  document.body.appendChild(ghostEl);iconCanvas(ghostEl,type,rot);moveGhost(e.clientX,e.clientY);
+}
+function moveGhost(x,y){if(ghostEl){ghostEl.style.left=x+'px';ghostEl.style.top=y+'px';}}
+function removeGhost(){if(ghostEl){ghostEl.remove();ghostEl=null;}}
+
+/* ===== 입력 처리 ===== */
+function cellAt(x,y){
+  const r=cvBoard.getBoundingClientRect();
+  if(x<r.left||x>=r.right||y<r.top||y>=r.bottom)return -1;
+  const cx=Math.floor((x-r.left)/r.width*COLS),cy=Math.floor((y-r.top)/r.height*ROWS);
+  return Math.max(0,Math.min(ROWS-1,cy))*COLS+Math.max(0,Math.min(COLS-1,cx));
+}
+function wireAxis(i){
+  const a=[0,1,2,3].map(d=>linked(S.bd,i,d)),n=a.filter(Boolean).length;
+  if(n===2&&a[1]&&a[3])return 0;
+  if(n===2&&a[0]&&a[2])return 1;
+  if(n===0)return 0;
+  if(n===1)return (a[1]||a[3])?0:1;
+  return -1;
+}
+function canDrop(i,type){
+  if(i<0)return false;
+  const q=S.bd[i];
+  return !q||(q.t==='wire'&&type!=='wire'&&wireAxis(i)>=0);
+}
+function strokeTo(i){
+  const pts=[];
+  if(S.last<0)pts.push(i);
+  else{
+    let x0=S.last%COLS,y0=(S.last/COLS)|0;const x1=i%COLS,y1=(i/COLS)|0;
+    const dx=Math.abs(x1-x0),dy=-Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;let err=dx+dy;
+    for(;;){pts.push(y0*COLS+x0);if(x0===x1&&y0===y1)break;const e2=2*err;if(e2>=dy){err+=dy;x0+=sx;}if(e2<=dx){err+=dx;y0+=sy;}}
+  }
+  S.last=i;let changed=false;
+  for(const k of pts){
+    if(S.painting==='wire'&&!S.bd[k]){S.bd[k]={t:'wire',r:0,on:false};changed=true;sfx.tick();}
+    else if(S.painting==='erase'){const p=S.bd[k];if(p&&!p.locked){S.bd[k]=null;changed=true;if(S.sel===k)S.sel=-1;sfx.del();}}
+  }
+  if(S.trayPaint)S.trayPaint.entered=true;
+  if(changed)recompute();
+}
+cvBoard.addEventListener('pointerdown',e=>{
+  if(e.button!==0&&e.pointerType==='mouse')return;
+  e.preventDefault();
+  const i=cellAt(e.clientX,e.clientY);if(i<0||S.cleared)return;
+  const p=S.bd[i];
+  if(S.tool==='erase'){S.painting='erase';S.last=-1;strokeTo(i);return;}
+  if(p){
+    if(p.locked){S.sel=i;sfx.no();setStatus('🔒 잠긴 부품이에요. 옮기거나 돌릴 수 없어요.','info');recompute(true);return;}
+    S.drag={src:'board',from:i,piece:p,type:p.t,moved:false,sx:e.clientX,sy:e.clientY};
+  }else if(S.tool==='wire'){S.painting='wire';S.last=-1;strokeTo(i);}
+});
+window.addEventListener('pointermove',e=>{
+  const i=cellAt(e.clientX,e.clientY);
+  S.hover=i;
+  const d=S.drag;
+  if(d){
+    if(d.src==='board'&&!d.moved&&Math.hypot(e.clientX-d.sx,e.clientY-d.sy)>7){
+      d.moved=true;S.bd[d.from]=null;S.sel=-1;makeGhost(d.type,d.piece.r,e);recompute(true);
+    }
+    if(d.moved){moveGhost(e.clientX,e.clientY);S.hoverCol=canDrop(i,d.type)?'#a7f070':'#ef4d5d';}
+  }else{S.hoverCol='#ffffff';}
+  if(S.painting&&i>=0)strokeTo(i);
+});
+cvBoard.addEventListener('pointerleave',()=>{if(!S.drag)S.hover=-1;});
+function onUp(e){
+  if(S.painting){
+    const wasErase=S.painting==='erase',used=S.trayPaint?S.trayPaint.entered:true;
+    if(wasErase&&used){S.tool='wire';updateToolUI();}
+    if(S.trayPaint&&!S.trayPaint.entered&&S.trayPaint.was){S.tool='move';updateToolUI();}
+    S.painting=null;S.trayPaint=null;S.last=-1;recompute();
+  }
+  const d=S.drag;if(!d)return;
+  const i=cellAt(e.clientX,e.clientY);let note=null;
+  if(d.src==='board'&&!d.moved){
+    S.sel=S.bd.indexOf(d.piece);
+    if(d.piece.t==='switch'){d.piece.on=!d.piece.on;sfx.sw(d.piece.on);}
+    else{d.piece.r=(d.piece.r+1)&3;sfx.turn();}
+  }else if(i>=0&&!S.bd[i]){
+    S.bd[i]=d.piece;S.sel=i;sfx.put();
+  }else if(i>=0&&S.bd[i].t==='wire'&&d.type!=='wire'){
+    const ax=wireAxis(i);
+    if(ax<0){
+      if(d.src==='board')S.bd[d.from]=d.piece;
+      sfx.no();note='모퉁이나 갈림길에는 끼울 수 없어요. 쭉 뻗은 전선 위에 놓아 보세요.';
+    }else{
+      if((d.piece.r&1)!==ax)d.piece.r=ax;
+      S.bd[i]=d.piece;S.sel=i;sfx.put();
+    }
+  }else if(i>=0){
+    if(d.src==='board'){S.bd[d.from]=d.piece;}
+    sfx.no();
+  }else if(d.src==='board'){sfx.del();}
+  S.drag=null;removeGhost();S.hoverCol='#ffffff';recompute();if(note)setStatus(note,'bad');
+}
+window.addEventListener('pointerup',onUp);
+window.addEventListener('pointercancel',e=>{if(S.drag&&S.drag.moved&&S.drag.src==='board'&&!S.bd[S.drag.from])S.bd[S.drag.from]=S.drag.piece;S.drag=null;S.painting=null;S.trayPaint=null;removeGhost();recompute();});
+cvBoard.addEventListener('contextmenu',e=>e.preventDefault());
+
+function rotateSel(){const p=S.sel>=0&&S.bd[S.sel];if(p&&!p.locked){p.r=(p.r+1)&3;sfx.turn();recompute();}}
+function deleteSel(){const p=S.sel>=0&&S.bd[S.sel];if(p&&!p.locked){S.bd[S.sel]=null;S.sel=-1;sfx.del();recompute();}}
+$('#btnRot').addEventListener('click',rotateSel);
+$('#btnDel').addEventListener('click',deleteSel);
+$('#btnReset').addEventListener('click',()=>{
+  for(let i=0;i<S.bd.length;i++)if(S.bd[i]&&!S.bd[i].locked)S.bd[i]=null;
+  S.sel=-1;S.okSince=0;sfx.del();recompute();setStatus(S.L.tip,'info');
+});
+$('#btnHint').addEventListener('click',()=>{S.hintUntil=performance.now()+4000;S.hintUsed=true;sfx.tick();setStatus('💡 흐릿하게 보이는 그림이 정답 모양이에요. 4초 동안만 보여줘요!','info');});
+$('#btnHome').addEventListener('click',showSelect);
+window.addEventListener('keydown',e=>{
+  if($('#screenGame').hidden||!$('#modal').hidden)return;
+  if(e.key==='r'||e.key==='R'||e.key==='ㄱ'){
+    if(S.drag&&S.drag.moved){S.drag.piece.r=(S.drag.piece.r+1)&3;iconCanvas(ghostEl,S.drag.type,S.drag.piece.r);}
+    else rotateSel();
+  }else if(e.key==='Delete'||e.key==='Backspace'){deleteSel();}
+  else if(e.key===' '&&S.sel>=0&&S.bd[S.sel]&&S.bd[S.sel].t==='switch'&&document.activeElement===document.body){e.preventDefault();const p=S.bd[S.sel];p.on=!p.on;sfx.sw(p.on);recompute();}
+});
+$('#btnSound').addEventListener('click',()=>{
+  muted=!muted;$('#btnSound').textContent=muted?'🔇 소리 꺼짐':'🔊 소리 켜짐';$('#btnSound').setAttribute('aria-pressed',String(!muted));if(!muted)sfx.tick();
+});
+
+/* ===== 미션 판정과 안내 ===== */
+function evalGoals(L,bd,sim){
+  const out=[],els=sim.els;
+  for(const gl of L.goals){
+    let ok=false;
+    if(gl.k==='bulb')ok=els.filter(e=>e.t==='bulb'&&e.bright>=gl.min).length>=gl.n;
+    else if(gl.k==='motor')ok=els.some(e=>e.t==='motor'&&Math.abs(e.I)>=gl.min&&Math.sign(e.I)===gl.dir);
+    else if(gl.k==='amm')ok=els.some(e=>e.t==='ammeter'&&e.I>=gl.min&&(gl.max==null||e.I<=gl.max));
+    else if(gl.k==='volt')ok=els.some(e=>e.t==='voltmeter'&&e.v>=gl.min&&(gl.max==null||e.v<=gl.max));
+    out.push({label:gl.label,ok});
+  }
+  if(!L.lab){
+    let left=0;const cnt={};
+    for(const p of bd)if(p&&p.t!=='wire'&&!p.locked)cnt[p.t]=(cnt[p.t]||0)+1;
+    for(const k of ORDER)left+=Math.max(0,(L.parts[k]||0)-(cnt[k]||0));
+    out.push({label:'준비된 부품을 모두 사용한다',ok:left===0});
+  }
+  return out;
+}
+function recompute(noUI){
+  S.sim=simulate(S.bd,false);
+  S.goals=evalGoals(S.L,S.bd,S.sim);
+  const hasSw=S.bd.some(p=>p&&p.t==='switch'&&!p.on);
+  S.simF=hasSw?simulate(S.bd,true):S.sim;
+  if(S.sim.short&&!S.shortPrev){S.shorts++;sfx.zap();}
+  S.shortPrev=S.sim.short;
+  wrap.classList.toggle('short',S.sim.short);
+  S.okSince=0;
+  updateGoalsUI();updateTags();updateTray();updateStatus();
+}
+function updateGoalsUI(){
+  const ul=$('#goals');ul.innerHTML='';
+  if(S.L.lab){const li=document.createElement('li');li.textContent='마음대로 만들어 보세요! 정답은 없어요.';ul.appendChild(li);return;}
+  S.goals.forEach(gl=>{const li=document.createElement('li');li.className=gl.ok?'ok':'';li.innerHTML='<span class="box"></span><span></span>';li.lastChild.textContent=gl.label;ul.appendChild(li);});
+}
+function updateTags(){
+  const box=$('#tags');box.innerHTML='';
+  const add=(i,r,text,cls)=>{
+    const x=i%COLS,y=(i/COLS)|0,d=document.createElement('div'),horiz=(r&1)===0;
+    d.className='tag '+(horiz?'h ':'')+cls;d.textContent=text;
+    d.style.left=((horiz?x+0.5:x+0.64)/COLS*100)+'%';d.style.top='calc('+(y/ROWS*100)+'% - 0.95em)';
+    box.appendChild(d);
+  };
+  for(const e of S.sim.els){
+    const p=S.bd[e.i];
+    if(e.t==='ammeter')add(e.i,p.r,(e.active?e.I:0).toFixed(2)+' A',e.I<-0.05?'bad':(e.I>0.05?'ok':'dim'));
+    else if(e.t==='voltmeter')add(e.i,p.r,(e.v).toFixed(1)+' V',e.v<-0.05?'bad':(e.v>0.05?'ok':'dim'));
+    else if(e.t==='battery')add(e.i,p.r,'3V','dim');
+    else if(e.t==='switch')add(e.i,p.r,p.on?'ON':'OFF',p.on?'on':'off');
+  }
+}
+function setStatus(t,mood){const el=$('#status');el.textContent=t;el.className='status '+(mood||'info');}
+function updateStatus(){
+  const s=S.sim,els=s.els,bd=S.bd;
+  const placed=bd.filter(p=>p&&!p.locked).length;
+  if(s.short)return setStatus('합선이에요! 전지의 + 와 − 가 전구나 전동기 없이 바로 이어졌어요. 전류계가 병렬로 달리지 않았는지 살펴봐요.','bad');
+  if(placed===0)return setStatus(S.L.tip,'info');
+  const bad=els.filter(e=>(e.t==='ammeter'&&e.I<-0.05)||(e.t==='voltmeter'&&e.v<-0.05));
+  if(bad.length)return setStatus('앗, '+NAMES[bad[0].t]+'의 바늘이 거꾸로 가요! + 단자로 전류가 들어가게 '+NAMES[bad[0].t]+'를 돌리거나 전지 방향을 확인해요.','bad');
+  if(S.L.lab)return setStatus(els.some(e=>e.active)?'전류가 흐르고 있어요! 다른 부품도 달아 볼까요?':'아직 전류가 흐르지 않아요. 끊어진 곳(깜빡이는 빨간 점)을 이어 보세요.','info');
+  const allOk=S.goals.every(x=>x.ok);
+  if(allOk)return setStatus('성공! 잠깐 기다리면 클리어돼요 ✨','good');
+  const mo=els.find(e=>e.t==='motor'&&Math.abs(e.I)>0.3);
+  const goalMotor=S.L.goals.find(x=>x.k==='motor');
+  if(mo&&goalMotor&&Math.sign(mo.I)!==goalMotor.dir)return setStatus('전동기가 반대 방향으로 돌아요! 전지나 전동기의 방향을 돌려 보세요. (부품을 누르면 돌아가요)','bad');
+  const sf=S.simF;
+  if(sf!==s&&evalGoals(S.L,bd,sf).every(x=>x.ok))return setStatus('길은 다 이어졌어요! 스위치를 눌러서 ON(초록색)으로 바꿔 보세요.','info');
+  const rem=remaining(),left=ORDER.filter(k=>rem[k]>0).map(k=>NAMES[k]+' '+rem[k]+'개');
+  if(left.length)return setStatus('아직 쓰지 않은 부품이 있어요: '+left.join(', ')+'.','info');
+  const open=els.some(e=>{const p=bd[e.i];return !linked(bd,e.i,T0(p.r))||!linked(bd,e.i,T1(p.r));});
+  if(open)return setStatus('끊어진 곳이 있어요. 깜빡이는 빨간 점을 전선으로 이어 보세요.','info');
+  const bat=els.filter(e=>e.t==='battery');
+  if(bat.length>1&&bat.every(e=>Math.abs(e.I)<0.02))return setStatus('길은 이어졌는데 전류가 안 흘러요. 전지 두 개의 힘이 서로 없어지고 있어요. 전지 하나를 돌려 보세요!','bad');
+  return setStatus('전류가 알맞게 흐르지 않아요. 전지 방향, 계기 방향, 연결 모양을 회로도와 비교해 보세요.','info');
+}
+
+/* ===== 클리어 ===== */
+function clearLevel(){
+  S.cleared=true;
+  const stars=Math.max(1,3-S.shorts-(S.hintUsed?1:0));
+  progress[S.lv]=Math.max(progress[S.lv]||0,stars);saveProgress();
+  sfx.win();
+  $('#mStars').innerHTML=[1,2,3].map(n=>'<span class="'+(n<=stars?'on':'')+'">★</span>').join('');
+  $('#mText').textContent=S.L.learn;
+  const more=S.lv+1<LEVELS.length-1;
+  $('#mNext').textContent=more?'다음 단계 ▶':'처음 화면으로';
+  $('#mTitle').textContent=more?'STAGE CLEAR!':'ALL CLEAR!';
+  const cf=$('#confetti');cf.innerHTML='';
+  const colors=['#ffcd75','#ef7d57','#a7f070','#41a6f6','#73eff7','#b13e53'];
+  for(let k=0;k<44;k++){const i=document.createElement('i');i.style.left=Math.random()*100+'%';i.style.background=colors[k%colors.length];i.style.animationDuration=(1.6+Math.random()*1.6)+'s';i.style.animationDelay=(Math.random()*.8)+'s';cf.appendChild(i);}
+  setTimeout(()=>{$('#modal').hidden=false;$('#mNext').focus();},350);
+}
+$('#mNext').addEventListener('click',()=>{if(S.lv+1<LEVELS.length-1)loadLevel(S.lv+1);else showSelect();});
+$('#mHome').addEventListener('click',showSelect);
+
+/* ===== 메인 루프 ===== */
+function loop(now){
+  if(!S.running)return;
+  const dt=Math.min(0.05,(now-S.lastT)/1000);S.lastT=now;const t=now/1000;
+  for(const e of S.sim.els)if(e.t==='motor'){
+    const sp=Math.abs(e.I)>0.05?Math.min(2.2,Math.abs(e.I)/0.6):0;
+    S.motorAng[e.i]=(S.motorAng[e.i]||0)+Math.sign(e.I)*sp*dt*7;
+  }
+  const hinting=now<S.hintUntil&&!S.L.lab;
+  renderBoard(ctxB,S.bd,S.sim,t,{theme:GAME_TH,hover:S.hover>=0&&(S.drag?S.drag.moved:true)?S.hover:-1,hoverCol:S.hoverCol,sel:S.sel,motorAng:S.motorAng,ghost:hinting?S.solBd:null});
+  if(!S.cleared&&!S.L.lab&&S.goals.length&&S.goals.every(x=>x.ok)&&!S.sim.short&&!S.drag&&!S.painting){
+    if(!S.okSince)S.okSince=now; else if(now-S.okSince>1500)clearLevel();
+  }else S.okSince=0;
+  requestAnimationFrame(loop);
+}
+
+/* ===== 시작 ===== */
+(function(){const cv=$('#logoCv');g=cv.getContext('2d');TH=GAME_TH;g.imageSmoothingEnabled=false;
+  disc(12,12,10,'#0c0e1c');disc(12,12,9,'#ffcd75');disc(12,12,6,'#fff3c4');R(10,9,4,2,'#ef7d57');R(11,11,2,6,'#ef7d57');R(9,20,6,3,'#566c86');R(10,23,4,1,'#566c86');})();
+startIntro();
+
+window.CQ={LEVELS,S,simulate,evalGoals,load:loadLevel,recompute,COLS,ROWS,
+  fillSolution(i){loadLevel(i);const L=LEVELS[i];L.sol.forEach(o=>{S.bd[o.y*COLS+o.x]={t:o.t,r:o.r||0,on:!!o.on,locked:S.bd[o.y*COLS+o.x]?S.bd[o.y*COLS+o.x].locked:false};});recompute();return{goals:S.goals,short:S.sim.short};}};
+})();
+</script>
+
+</body></html>
